@@ -30,6 +30,29 @@ class BinauralBeatsGenerator {
         };
         
         this.init();
+        this.registerServiceWorker();
+    }
+    
+    async registerServiceWorker() {
+        if ('serviceWorker' in navigator) {
+            try {
+                const registration = await navigator.serviceWorker.register('/sw.js');
+                console.log('Service Worker registered:', registration);
+                
+                // Handle service worker updates
+                registration.addEventListener('updatefound', () => {
+                    const newWorker = registration.installing;
+                    newWorker.addEventListener('statechange', () => {
+                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            // New service worker available
+                            console.log('New service worker available');
+                        }
+                    });
+                });
+            } catch (error) {
+                console.log('Service Worker registration failed:', error);
+            }
+        }
     }
     
     async init() {
@@ -55,13 +78,20 @@ class BinauralBeatsGenerator {
             lastTouchEnd = now;
         }, false);
         
+        // iOS-specific audio handling
+        if (this.isIOS) {
+            this.setupIOSAudioHandling();
+        }
+        
         // Handle page visibility changes for background audio
         document.addEventListener('visibilitychange', () => {
             if (this.backgroundMode && this.isPlaying) {
                 if (document.hidden) {
-                    console.log('Page hidden - audio continues in background');
+                    console.log('Page hidden - attempting to maintain audio');
+                    this.handleBackgroundTransition();
                 } else {
-                    console.log('Page visible - audio continues');
+                    console.log('Page visible - resuming audio if needed');
+                    this.handleForegroundTransition();
                 }
             }
         });
@@ -70,7 +100,15 @@ class BinauralBeatsGenerator {
         if (this.isSafari || this.isIOS) {
             document.addEventListener('pagehide', () => {
                 if (this.backgroundMode && this.isPlaying) {
-                    console.log('Safari page hide - maintaining audio');
+                    console.log('Safari page hide - attempting to maintain audio');
+                    this.handleBackgroundTransition();
+                }
+            });
+            
+            document.addEventListener('pageshow', () => {
+                if (this.backgroundMode && this.isPlaying) {
+                    console.log('Safari page show - checking audio state');
+                    this.handleForegroundTransition();
                 }
             });
         }
@@ -82,6 +120,92 @@ class BinauralBeatsGenerator {
                 this.backgroundMode = e.target.checked;
                 console.log('Background mode:', this.backgroundMode ? 'enabled' : 'disabled');
             });
+        }
+    }
+    
+    setupIOSAudioHandling() {
+        // iOS requires special handling for background audio
+        document.addEventListener('touchstart', () => {
+            if (this.audioContext && this.audioContext.state === 'suspended') {
+                this.audioContext.resume();
+            }
+        });
+        
+        // Handle iOS audio session interruptions
+        if (this.audioContext) {
+            this.audioContext.addEventListener('statechange', () => {
+                console.log('iOS Audio Context state:', this.audioContext.state);
+                if (this.audioContext.state === 'suspended' && this.isPlaying) {
+                    console.log('Audio context suspended - attempting to resume');
+                    setTimeout(() => {
+                        if (this.audioContext.state === 'suspended') {
+                            this.audioContext.resume();
+                        }
+                    }, 100);
+                }
+            });
+        }
+    }
+    
+    handleBackgroundTransition() {
+        // iOS limitations: We can't actually maintain audio in background
+        // But we can prepare for quick resume
+        if (this.isIOS) {
+            console.log('iOS background transition - audio will pause');
+            this.showIOSBackgroundWarning();
+        }
+    }
+    
+    handleForegroundTransition() {
+        // Resume audio if it was suspended
+        if (this.audioContext && this.audioContext.state === 'suspended' && this.isPlaying) {
+            this.audioContext.resume().then(() => {
+                console.log('Audio context resumed after foreground transition');
+            });
+        }
+    }
+    
+    showIOSBackgroundWarning() {
+        const warning = document.createElement('div');
+        warning.id = 'ios-warning';
+        warning.style.cssText = `
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 165, 0, 0.9);
+            color: #000000;
+            padding: 15px 25px;
+            border-radius: 8px;
+            z-index: 1001;
+            font-weight: bold;
+            text-align: center;
+            max-width: 90%;
+        `;
+        warning.innerHTML = `
+            <div>📱 iOS Limitation</div>
+            <div style="font-size: 0.9rem; margin-top: 5px;">
+                Audio pauses when switching apps. Tap "Start" to resume.
+            </div>
+        `;
+        document.body.appendChild(warning);
+        
+        setTimeout(() => {
+            if (document.body.contains(warning)) {
+                document.body.removeChild(warning);
+            }
+        }, 5000);
+    }
+    
+    showIOSInstructions() {
+        const iosInstructions = document.getElementById('ios-instructions');
+        if (iosInstructions) {
+            iosInstructions.style.display = 'block';
+            
+            // Auto-hide after 10 seconds
+            setTimeout(() => {
+                iosInstructions.style.display = 'none';
+            }, 10000);
         }
     }
     
@@ -126,6 +250,16 @@ class BinauralBeatsGenerator {
                 this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 document.body.removeChild(prompt);
                 console.log('Audio context initialized successfully');
+                
+                // Show iOS instructions if on iOS
+                if (this.isIOS) {
+                    this.showIOSInstructions();
+                }
+                
+                // Setup iOS audio handling after context creation
+                if (this.isIOS) {
+                    this.setupIOSAudioHandling();
+                }
             } catch (error) {
                 console.error('Error creating audio context:', error);
                 this.showError('Failed to create audio context. Please try again.');

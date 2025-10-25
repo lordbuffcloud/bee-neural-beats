@@ -1,0 +1,28 @@
+{
+  "name": "Bee Neural Beats",
+  "short_name": "Bee Beats",
+  "description": "Binaural beats generator for meditation, focus, and consciousness exploration",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#FFD700",
+  "orientation": "portrait",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "bee-logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "bee-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["health", "lifestyle", "utilities"],
+  "lang": "en",
+  "dir": "ltr"
+}
