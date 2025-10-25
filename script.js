@@ -465,9 +465,13 @@ class BinauralBeatsGenerator {
             const leftFreq = carrierFreq - beatFreq / 2;
             const rightFreq = carrierFreq + beatFreq / 2;
             
-            // Create oscillators
+            // Create oscillators with explicit sine wave
             this.leftOscillator = this.audioContext.createOscillator();
             this.rightOscillator = this.audioContext.createOscillator();
+            
+            // Set waveform type to sine for pure tones
+            this.leftOscillator.type = 'sine';
+            this.rightOscillator.type = 'sine';
             
             // Create separate gain nodes for each channel
             this.leftGain = this.audioContext.createGain();
@@ -481,23 +485,20 @@ class BinauralBeatsGenerator {
             this.leftGain.gain.setValueAtTime(volume / 100, this.audioContext.currentTime);
             this.rightGain.gain.setValueAtTime(volume / 100, this.audioContext.currentTime);
             
-            // Create stereo panners
-            const leftPanner = this.audioContext.createStereoPanner();
-            const rightPanner = this.audioContext.createStereoPanner();
+            // Create channel splitters and mergers for true stereo separation
+            const channelSplitter = this.audioContext.createChannelSplitter(2);
+            const channelMerger = this.audioContext.createChannelMerger(2);
             
-            // Pan left oscillator hard left, right oscillator hard right
-            leftPanner.pan.setValueAtTime(-1, this.audioContext.currentTime);
-            rightPanner.pan.setValueAtTime(1, this.audioContext.currentTime);
-            
-            // Connect audio graph - each oscillator goes directly to its own channel
+            // Connect left oscillator to left channel only
             this.leftOscillator.connect(this.leftGain);
+            this.leftGain.connect(channelMerger, 0, 0); // Connect to left channel (index 0)
+            
+            // Connect right oscillator to right channel only  
             this.rightOscillator.connect(this.rightGain);
+            this.rightGain.connect(channelMerger, 0, 1); // Connect to right channel (index 1)
             
-            this.leftGain.connect(leftPanner);
-            this.rightGain.connect(rightPanner);
-            
-            leftPanner.connect(this.audioContext.destination);
-            rightPanner.connect(this.audioContext.destination);
+            // Connect merged channels to destination
+            channelMerger.connect(this.audioContext.destination);
             
             // Start oscillators
             this.leftOscillator.start();
