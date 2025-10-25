@@ -7,6 +7,10 @@ class BinauralBeatsGenerator {
         this.isPlaying = false;
         this.startTime = null;
         this.timerInterval = null;
+        this.wakeLock = null;
+        this.backgroundMode = true;
+        this.isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+        this.isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
         
         // Frequency bands
         this.bands = {
@@ -32,10 +36,52 @@ class BinauralBeatsGenerator {
         try {
             this.setupEventListeners();
             this.setupVisualization();
+            this.setupMobileOptimizations();
             this.showUserInteractionPrompt();
         } catch (error) {
             console.error('Error initializing:', error);
             this.showError('Failed to initialize audio system. Please refresh the page.');
+        }
+    }
+    
+    setupMobileOptimizations() {
+        // Prevent zoom on double tap
+        let lastTouchEnd = 0;
+        document.addEventListener('touchend', function (event) {
+            const now = (new Date()).getTime();
+            if (now - lastTouchEnd <= 300) {
+                event.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, false);
+        
+        // Handle page visibility changes for background audio
+        document.addEventListener('visibilitychange', () => {
+            if (this.backgroundMode && this.isPlaying) {
+                if (document.hidden) {
+                    console.log('Page hidden - audio continues in background');
+                } else {
+                    console.log('Page visible - audio continues');
+                }
+            }
+        });
+        
+        // Handle Safari-specific events
+        if (this.isSafari || this.isIOS) {
+            document.addEventListener('pagehide', () => {
+                if (this.backgroundMode && this.isPlaying) {
+                    console.log('Safari page hide - maintaining audio');
+                }
+            });
+        }
+        
+        // Setup background mode toggle
+        const backgroundToggle = document.getElementById('background-mode');
+        if (backgroundToggle) {
+            backgroundToggle.addEventListener('change', (e) => {
+                this.backgroundMode = e.target.checked;
+                console.log('Background mode:', this.backgroundMode ? 'enabled' : 'disabled');
+            });
         }
     }
     
@@ -115,6 +161,23 @@ class BinauralBeatsGenerator {
     }
     
     setupEventListeners() {
+        // Main play button
+        document.getElementById('play-pause').addEventListener('click', () => {
+            this.togglePlayback();
+        });
+        
+        // Quick preset buttons
+        document.querySelectorAll('.quick-preset').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const preset = e.currentTarget.dataset.preset;
+                this.loadPreset(preset);
+                // Auto-play after selecting preset
+                if (!this.isPlaying) {
+                    setTimeout(() => this.togglePlayback(), 100);
+                }
+            });
+        });
+        
         // Band buttons
         document.querySelectorAll('.band-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -148,11 +211,7 @@ class BinauralBeatsGenerator {
             });
         });
         
-        // Playback controls
-        document.getElementById('play-pause').addEventListener('click', () => {
-            this.togglePlayback();
-        });
-        
+        // Stop button
         document.getElementById('stop').addEventListener('click', () => {
             this.stop();
         });
@@ -320,6 +379,9 @@ class BinauralBeatsGenerator {
             // Start timer
             this.startTimer();
             
+            // Request wake lock to keep screen on (mobile)
+            this.requestWakeLock();
+            
         } catch (error) {
             console.error('Error playing audio:', error);
             this.showError('Failed to play audio. Please check your browser audio settings.');
@@ -338,10 +400,33 @@ class BinauralBeatsGenerator {
         
         this.isPlaying = false;
         this.stopTimer();
+        this.releaseWakeLock();
         
         // Update UI
-        document.getElementById('play-pause').textContent = '▶️ Play';
+        document.getElementById('play-pause').textContent = '▶️ Start';
         document.getElementById('play-pause').classList.remove('playing');
+    }
+    
+    async requestWakeLock() {
+        try {
+            if ('wakeLock' in navigator) {
+                this.wakeLock = await navigator.wakeLock.request('screen');
+                console.log('Wake lock acquired');
+                
+                this.wakeLock.addEventListener('release', () => {
+                    console.log('Wake lock released');
+                });
+            }
+        } catch (err) {
+            console.log('Wake lock failed:', err);
+        }
+    }
+    
+    releaseWakeLock() {
+        if (this.wakeLock) {
+            this.wakeLock.release();
+            this.wakeLock = null;
+        }
     }
     
     stop() {
