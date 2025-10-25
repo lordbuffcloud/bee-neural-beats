@@ -1,0 +1,30 @@
+{
+  "name": "bee-neural-beats",
+  "version": "1.0.0",
+  "description": "A binaural beats generator for meditation, focus, and consciousness exploration",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx http-server -p 3000 -o",
+    "dev": "npx http-server -p 3000 -o",
+    "build": "echo 'Static site - no build step required'",
+    "deploy": "vercel --prod"
+  },
+  "keywords": [
+    "binaural-beats",
+    "meditation",
+    "focus",
+    "brainwave-entrainment",
+    "audio",
+    "web-audio-api"
+  ],
+  "author": "lordbuffcloud",
+  "license": "MIT",
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lordbuffcloud/bee-neural-beats.git"
+  },
+  "homepage": "https://bee-neural-beats.vercel.app"
+}

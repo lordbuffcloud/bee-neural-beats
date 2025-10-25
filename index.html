@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Binaural Beats Generator</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="bee-logo.png" type="image/png">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo-container">
+                <img src="bee-logo.png" alt="Crowned Bee Logo" class="logo">
+            </div>
+            <h1>Binaural Beats Generator</h1>
+            <p>Harness the power of brainwave entrainment for meditation, focus, and consciousness exploration</p>
+        </header>
+
+        <div class="main-content">
+            <div class="controls-panel">
+                <div class="frequency-band-selector">
+                    <h3>Frequency Bands</h3>
+                    <div class="band-buttons">
+                        <button class="band-btn" data-band="delta">Delta<br><span>1-4 Hz</span></button>
+                        <button class="band-btn" data-band="theta">Theta<br><span>4-8 Hz</span></button>
+                        <button class="band-btn" data-band="alpha">Alpha<br><span>8-13 Hz</span></button>
+                        <button class="band-btn" data-band="beta">Beta<br><span>12-30 Hz</span></button>
+                        <button class="band-btn" data-band="gamma">Gamma<br><span>30-100 Hz</span></button>
+                    </div>
+                </div>
+
+                <div class="frequency-controls">
+                    <h3>Manual Control</h3>
+                    <div class="control-group">
+                        <label for="carrier-freq">Carrier Frequency (Hz)</label>
+                        <input type="range" id="carrier-freq" min="200" max="800" value="400" step="10">
+                        <span id="carrier-value">400 Hz</span>
+                    </div>
+                    
+                    <div class="control-group">
+                        <label for="beat-freq">Beat Frequency (Hz)</label>
+                        <input type="range" id="beat-freq" min="0.5" max="100" value="10" step="0.1">
+                        <span id="beat-value">10 Hz</span>
+                    </div>
+
+                    <div class="control-group">
+                        <label for="volume">Volume</label>
+                        <input type="range" id="volume" min="0" max="100" value="50" step="1">
+                        <span id="volume-value">50%</span>
+                    </div>
+                </div>
+
+                <div class="preset-controls">
+                    <h3>Presets</h3>
+                    <div class="preset-buttons">
+                        <button class="preset-btn" data-preset="meditation">Deep Meditation</button>
+                        <button class="preset-btn" data-preset="focus">Focus & Study</button>
+                        <button class="preset-btn" data-preset="sleep">Sleep Aid</button>
+                        <button class="preset-btn" data-preset="creativity">Creativity Boost</button>
+                    </div>
+                </div>
+
+                <div class="playback-controls">
+                    <button id="play-pause" class="play-btn">▶️ Play</button>
+                    <button id="stop" class="stop-btn">⏹️ Stop</button>
+                    <div class="timer">
+                        <span id="timer">00:00</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="visualization-panel">
+                <h3>Audio Visualization</h3>
+                <canvas id="waveform" width="400" height="200"></canvas>
+                <div class="frequency-display">
+                    <div class="freq-info">
+                        <span>Left Ear: <span id="left-freq">395 Hz</span></span>
+                        <span>Right Ear: <span id="right-freq">405 Hz</span></span>
+                        <span>Beat: <span id="beat-display">10 Hz</span></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="info-panel">
+            <h3>Frequency Band Guide</h3>
+            <div class="band-info">
+                <div class="info-item">
+                    <strong>Delta (1-4 Hz):</strong> Deep restorative state, borderline sleep — useful for regeneration, shielding, subconscious imprinting.
+                </div>
+                <div class="info-item">
+                    <strong>Theta (4-8 Hz):</strong> Deep meditative/liminal states, between waking and sleep: perfect for Hermetic/Chaos rituals, connecting with deeper self.
+                </div>
+                <div class="info-item">
+                    <strong>Alpha (8-13 Hz):</strong> Relaxed focus, visualization, manifestation work from a calm yet alert mind.
+                </div>
+                <div class="info-item">
+                    <strong>Beta (12-30 Hz):</strong> Alert, cognitive, creative peaks — useful when coding, engineering, high flow state.
+                </div>
+                <div class="info-item">
+                    <strong>Gamma (30-100 Hz):</strong> Peak consciousness, spiritual awareness, enhanced perception.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
