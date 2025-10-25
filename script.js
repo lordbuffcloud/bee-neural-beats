@@ -30,12 +30,88 @@ class BinauralBeatsGenerator {
     
     async init() {
         try {
-            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
             this.setupEventListeners();
             this.setupVisualization();
+            this.showUserInteractionPrompt();
         } catch (error) {
-            console.error('Error initializing audio context:', error);
+            console.error('Error initializing:', error);
+            this.showError('Failed to initialize audio system. Please refresh the page.');
         }
+    }
+    
+    showUserInteractionPrompt() {
+        // Create a prompt for user interaction
+        const prompt = document.createElement('div');
+        prompt.id = 'audio-prompt';
+        prompt.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid #FFD700;
+            border-radius: 15px;
+            padding: 30px;
+            color: #FFD700;
+            text-align: center;
+            z-index: 1000;
+            box-shadow: 0 10px 30px rgba(255, 215, 0, 0.5);
+        `;
+        prompt.innerHTML = `
+            <h3>🎵 Audio System Ready</h3>
+            <p>Click anywhere to enable audio for the binaural beats generator.</p>
+            <p><small>Modern browsers require user interaction to start audio.</small></p>
+            <button id="enable-audio" style="
+                background: linear-gradient(135deg, #FFD700, #FFA500);
+                color: #000000;
+                border: none;
+                border-radius: 8px;
+                padding: 12px 24px;
+                font-weight: bold;
+                cursor: pointer;
+                margin-top: 15px;
+            ">Enable Audio</button>
+        `;
+        document.body.appendChild(prompt);
+        
+        // Handle user interaction
+        const enableAudio = () => {
+            try {
+                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                document.body.removeChild(prompt);
+                console.log('Audio context initialized successfully');
+            } catch (error) {
+                console.error('Error creating audio context:', error);
+                this.showError('Failed to create audio context. Please try again.');
+            }
+        };
+        
+        document.getElementById('enable-audio').addEventListener('click', enableAudio);
+        document.addEventListener('click', enableAudio, { once: true });
+    }
+    
+    showError(message) {
+        const errorDiv = document.createElement('div');
+        errorDiv.style.cssText = `
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 0, 0, 0.9);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            z-index: 1001;
+            font-weight: bold;
+        `;
+        errorDiv.textContent = message;
+        document.body.appendChild(errorDiv);
+        
+        setTimeout(() => {
+            if (document.body.contains(errorDiv)) {
+                document.body.removeChild(errorDiv);
+            }
+        }, 5000);
     }
     
     setupEventListeners() {
@@ -176,6 +252,13 @@ class BinauralBeatsGenerator {
     
     async play() {
         try {
+            // Check if audio context exists
+            if (!this.audioContext) {
+                this.showError('Audio system not initialized. Please click to enable audio first.');
+                return;
+            }
+            
+            // Resume audio context if suspended
             if (this.audioContext.state === 'suspended') {
                 await this.audioContext.resume();
             }
@@ -239,6 +322,7 @@ class BinauralBeatsGenerator {
             
         } catch (error) {
             console.error('Error playing audio:', error);
+            this.showError('Failed to play audio. Please check your browser audio settings.');
         }
     }
     
