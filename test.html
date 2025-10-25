@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minimal Binaural Test</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            background: #000; 
+            color: #fff; 
+            padding: 20px; 
+        }
+        button { 
+            padding: 15px 30px; 
+            font-size: 18px; 
+            margin: 10px; 
+            background: #FFD700; 
+            color: #000; 
+            border: none; 
+            border-radius: 5px; 
+            cursor: pointer; 
+        }
+        .info { 
+            margin: 20px 0; 
+            padding: 15px; 
+            background: #333; 
+            border-radius: 5px; 
+        }
+    </style>
+</head>
+<body>
+    <h1>Minimal Binaural Beats Test</h1>
+    
+    <div class="info">
+        <p><strong>Test:</strong> Each ear should hear a steady tone</p>
+        <p><strong>Left:</strong> 400 Hz (steady)</p>
+        <p><strong>Right:</strong> 410 Hz (steady)</p>
+        <p><strong>Both:</strong> 10 Hz binaural beat</p>
+    </div>
+    
+    <button id="start">Start Test</button>
+    <button id="stop">Stop</button>
+    
+    <div id="status">Ready</div>
+
+    <script>
+        let audioContext = null;
+        let leftOscillator = null;
+        let rightOscillator = null;
+        let isPlaying = false;
+
+        document.getElementById('start').addEventListener('click', async () => {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            
+            if (audioContext.state === 'suspended') {
+                await audioContext.resume();
+            }
+            
+            // Create oscillators
+            leftOscillator = audioContext.createOscillator();
+            rightOscillator = audioContext.createOscillator();
+            
+            // Set frequencies - FIXED for testing
+            leftOscillator.frequency.setValueAtTime(400, audioContext.currentTime);
+            rightOscillator.frequency.setValueAtTime(410, audioContext.currentTime);
+            
+            // Create gain nodes
+            const leftGain = audioContext.createGain();
+            const rightGain = audioContext.createGain();
+            
+            // Set volume
+            leftGain.gain.setValueAtTime(0.3, audioContext.currentTime);
+            rightGain.gain.setValueAtTime(0.3, audioContext.currentTime);
+            
+            // Create panners
+            const leftPanner = audioContext.createStereoPanner();
+            const rightPanner = audioContext.createStereoPanner();
+            
+            leftPanner.pan.setValueAtTime(-1, audioContext.currentTime);
+            rightPanner.pan.setValueAtTime(1, audioContext.currentTime);
+            
+            // Connect everything
+            leftOscillator.connect(leftGain);
+            leftGain.connect(leftPanner);
+            leftPanner.connect(audioContext.destination);
+            
+            rightOscillator.connect(rightGain);
+            rightGain.connect(rightPanner);
+            rightPanner.connect(audioContext.destination);
+            
+            // Start
+            leftOscillator.start();
+            rightOscillator.start();
+            
+            isPlaying = true;
+            document.getElementById('status').textContent = 'Playing - Test each ear individually';
+        });
+        
+        document.getElementById('stop').addEventListener('click', () => {
+            if (leftOscillator) {
+                leftOscillator.stop();
+                leftOscillator = null;
+            }
+            if (rightOscillator) {
+                rightOscillator.stop();
+                rightOscillator = null;
+            }
+            isPlaying = false;
+            document.getElementById('status').textContent = 'Stopped';
+        });
+    </script>
+</body>
+</html>
