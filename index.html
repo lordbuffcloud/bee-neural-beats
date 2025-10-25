@@ -101,7 +101,32 @@
 
             <div class="visualization-panel">
                 <h3>Audio Visualization</h3>
-                <canvas id="waveform" width="400" height="200"></canvas>
+                <div class="visualization-container">
+                    <div class="waveform-section">
+                        <canvas id="waveform" width="400" height="200"></canvas>
+                        <div class="waveform-info">
+                            <span id="waveform-status">Ready</span>
+                        </div>
+                    </div>
+                    
+                    <div class="spectrum-section">
+                        <canvas id="spectrum" width="400" height="150"></canvas>
+                        <div class="spectrum-info">
+                            <span>Frequency Spectrum</span>
+                        </div>
+                    </div>
+                    
+                    <div class="beat-visualizer">
+                        <div class="beat-circle" id="beat-circle">
+                            <div class="beat-pulse" id="beat-pulse"></div>
+                        </div>
+                        <div class="beat-info">
+                            <span id="beat-frequency">10 Hz</span>
+                            <span>Beat Pattern</span>
+                        </div>
+                    </div>
+                </div>
+                
                 <div class="frequency-display">
                     <div class="freq-info">
                         <span>Left Ear: <span id="left-freq">395 Hz</span></span>

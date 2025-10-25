@@ -589,31 +589,52 @@ class BinauralBeatsGenerator {
     }
     
     setupVisualization() {
+        this.setupWaveformVisualization();
+        this.setupSpectrumAnalyzer();
+        this.setupBeatVisualizer();
+    }
+    
+    setupWaveformVisualization() {
         const canvas = document.getElementById('waveform');
         const ctx = canvas.getContext('2d');
+        const statusElement = document.getElementById('waveform-status');
         
-        const draw = () => {
+        let animationTime = 0;
+        
+        const drawWaveform = () => {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
             if (this.isPlaying) {
                 const carrierFreq = parseFloat(document.getElementById('carrier-freq').value);
                 const beatFreq = parseFloat(document.getElementById('beat-freq').value);
+                const volume = parseFloat(document.getElementById('volume').value);
                 
-                // Draw waveform
-                ctx.strokeStyle = '#FFD700';
-                ctx.lineWidth = 2;
+                // Update status
+                statusElement.textContent = 'Playing';
+                statusElement.style.color = '#00FF00';
+                
+                // Create gradient for waveform
+                const gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
+                gradient.addColorStop(0, '#FFD700');
+                gradient.addColorStop(0.5, '#FFA500');
+                gradient.addColorStop(1, '#FFD700');
+                
+                ctx.strokeStyle = gradient;
+                ctx.lineWidth = 3;
+                ctx.shadowColor = '#FFD700';
+                ctx.shadowBlur = 10;
+                
+                // Draw left channel waveform
                 ctx.beginPath();
+                ctx.strokeStyle = '#00BFFF';
+                ctx.lineWidth = 2;
+                ctx.shadowColor = '#00BFFF';
                 
                 for (let x = 0; x < canvas.width; x++) {
-                    const time = x / canvas.width * 0.1;
+                    const time = (x / canvas.width * 0.1) + animationTime;
                     const leftFreq = carrierFreq - beatFreq / 2;
-                    const rightFreq = carrierFreq + beatFreq / 2;
-                    
-                    const leftWave = Math.sin(2 * Math.PI * leftFreq * time);
-                    const rightWave = Math.sin(2 * Math.PI * rightFreq * time);
-                    const combinedWave = (leftWave + rightWave) / 2;
-                    
-                    const y = canvas.height / 2 + combinedWave * 50;
+                    const leftWave = Math.sin(2 * Math.PI * leftFreq * time) * (volume / 100);
+                    const y = canvas.height / 2 + leftWave * 60;
                     
                     if (x === 0) {
                         ctx.moveTo(x, y);
@@ -621,20 +642,196 @@ class BinauralBeatsGenerator {
                         ctx.lineTo(x, y);
                     }
                 }
+                ctx.stroke();
                 
+                // Draw right channel waveform
+                ctx.beginPath();
+                ctx.strokeStyle = '#FF6B6B';
+                ctx.shadowColor = '#FF6B6B';
+                
+                for (let x = 0; x < canvas.width; x++) {
+                    const time = (x / canvas.width * 0.1) + animationTime;
+                    const rightFreq = carrierFreq + beatFreq / 2;
+                    const rightWave = Math.sin(2 * Math.PI * rightFreq * time) * (volume / 100);
+                    const y = canvas.height / 2 + rightWave * 60;
+                    
+                    if (x === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                }
+                ctx.stroke();
+                
+                // Draw combined waveform
+                ctx.beginPath();
+                ctx.strokeStyle = gradient;
+                ctx.lineWidth = 3;
+                ctx.shadowColor = '#FFD700';
+                
+                for (let x = 0; x < canvas.width; x++) {
+                    const time = (x / canvas.width * 0.1) + animationTime;
+                    const leftFreq = carrierFreq - beatFreq / 2;
+                    const rightFreq = carrierFreq + beatFreq / 2;
+                    
+                    const leftWave = Math.sin(2 * Math.PI * leftFreq * time) * (volume / 100);
+                    const rightWave = Math.sin(2 * Math.PI * rightFreq * time) * (volume / 100);
+                    const combinedWave = (leftWave + rightWave) / 2;
+                    
+                    const y = canvas.height / 2 + combinedWave * 40;
+                    
+                    if (x === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                }
                 ctx.stroke();
                 
                 // Draw frequency indicators
+                ctx.shadowBlur = 0;
                 ctx.fillStyle = '#FFD700';
-                ctx.font = '12px Arial';
-                ctx.fillText(`Beat: ${beatFreq} Hz`, 10, 20);
-                ctx.fillText(`Carrier: ${carrierFreq} Hz`, 10, 35);
+                ctx.font = 'bold 14px Arial';
+                ctx.fillText(`Beat: ${beatFreq} Hz`, 10, 25);
+                ctx.fillText(`Carrier: ${carrierFreq} Hz`, 10, 45);
+                ctx.fillText(`Volume: ${volume}%`, 10, 65);
+                
+                animationTime += 0.02;
+            } else {
+                statusElement.textContent = 'Stopped';
+                statusElement.style.color = '#FF6B6B';
+                
+                // Draw idle state
+                ctx.strokeStyle = '#333333';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(0, canvas.height / 2);
+                ctx.lineTo(canvas.width, canvas.height / 2);
+                ctx.stroke();
+                
+                ctx.fillStyle = '#666666';
+                ctx.font = '16px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Audio Stopped', canvas.width / 2, canvas.height / 2);
+                ctx.textAlign = 'left';
             }
             
-            requestAnimationFrame(draw);
+            requestAnimationFrame(drawWaveform);
         };
         
-        draw();
+        drawWaveform();
+    }
+    
+    setupSpectrumAnalyzer() {
+        const canvas = document.getElementById('spectrum');
+        const ctx = canvas.getContext('2d');
+        
+        const drawSpectrum = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            if (this.isPlaying) {
+                const carrierFreq = parseFloat(document.getElementById('carrier-freq').value);
+                const beatFreq = parseFloat(document.getElementById('beat-freq').value);
+                const volume = parseFloat(document.getElementById('volume').value);
+                
+                const leftFreq = carrierFreq - beatFreq / 2;
+                const rightFreq = carrierFreq + beatFreq / 2;
+                
+                // Draw frequency bars
+                const barWidth = canvas.width / 64;
+                const maxHeight = canvas.height - 20;
+                
+                for (let i = 0; i < 64; i++) {
+                    const freq = (i / 64) * 1000; // 0-1000 Hz range
+                    let height = 0;
+                    let color = '#333333';
+                    
+                    // Calculate bar height based on frequency content
+                    if (Math.abs(freq - leftFreq) < 10) {
+                        height = maxHeight * 0.8 * (volume / 100);
+                        color = '#00BFFF';
+                    } else if (Math.abs(freq - rightFreq) < 10) {
+                        height = maxHeight * 0.8 * (volume / 100);
+                        color = '#FF6B6B';
+                    } else if (Math.abs(freq - carrierFreq) < 20) {
+                        height = maxHeight * 0.4 * (volume / 100);
+                        color = '#FFD700';
+                    }
+                    
+                    // Add some randomness for visual appeal
+                    height += Math.random() * 10;
+                    
+                    const x = i * barWidth;
+                    const y = canvas.height - height;
+                    
+                    // Create gradient for bars
+                    const gradient = ctx.createLinearGradient(0, y, 0, canvas.height);
+                    gradient.addColorStop(0, color);
+                    gradient.addColorStop(1, '#000000');
+                    
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(x, y, barWidth - 1, height);
+                    
+                    // Add glow effect
+                    ctx.shadowColor = color;
+                    ctx.shadowBlur = 5;
+                    ctx.fillRect(x, y, barWidth - 1, height);
+                    ctx.shadowBlur = 0;
+                }
+                
+                // Draw frequency labels
+                ctx.fillStyle = '#FFD700';
+                ctx.font = '10px Arial';
+                ctx.fillText('0 Hz', 5, canvas.height - 5);
+                ctx.fillText('500 Hz', canvas.width / 2 - 20, canvas.height - 5);
+                ctx.fillText('1000 Hz', canvas.width - 30, canvas.height - 5);
+            }
+            
+            requestAnimationFrame(drawSpectrum);
+        };
+        
+        drawSpectrum();
+    }
+    
+    setupBeatVisualizer() {
+        const beatCircle = document.getElementById('beat-circle');
+        const beatPulse = document.getElementById('beat-pulse');
+        const beatFrequency = document.getElementById('beat-frequency');
+        
+        let beatAnimation = null;
+        
+        const animateBeat = () => {
+            if (this.isPlaying) {
+                const beatFreq = parseFloat(document.getElementById('beat-freq').value);
+                const beatInterval = 1000 / beatFreq; // Convert Hz to milliseconds
+                
+                beatFrequency.textContent = `${beatFreq} Hz`;
+                
+                // Animate the pulse
+                beatPulse.style.animationDuration = `${beatInterval}ms`;
+                
+                // Change circle color based on frequency band
+                if (beatFreq >= 1 && beatFreq <= 4) {
+                    beatCircle.style.borderColor = '#8A2BE2'; // Delta - Purple
+                } else if (beatFreq >= 4 && beatFreq <= 8) {
+                    beatCircle.style.borderColor = '#4169E1'; // Theta - Blue
+                } else if (beatFreq >= 8 && beatFreq <= 13) {
+                    beatCircle.style.borderColor = '#00BFFF'; // Alpha - Light Blue
+                } else if (beatFreq >= 12 && beatFreq <= 30) {
+                    beatCircle.style.borderColor = '#FFD700'; // Beta - Gold
+                } else if (beatFreq >= 30 && beatFreq <= 100) {
+                    beatCircle.style.borderColor = '#FF4500'; // Gamma - Red Orange
+                }
+                
+                beatAnimation = requestAnimationFrame(animateBeat);
+            } else {
+                beatFrequency.textContent = '0 Hz';
+                beatCircle.style.borderColor = '#FFD700';
+                beatPulse.style.animationDuration = '1s';
+            }
+        };
+        
+        animateBeat();
     }
 }
 
