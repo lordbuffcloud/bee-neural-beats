@@ -412,11 +412,6 @@ class BinauralBeatsGenerator {
     }
     
     updateVolume(volume) {
-        // Update volume for both channels if audio is playing
-        if (this.isPlaying && this.leftGain && this.rightGain) {
-            this.leftGain.gain.setValueAtTime(volume / 100, this.audioContext.currentTime);
-            this.rightGain.gain.setValueAtTime(volume / 100, this.audioContext.currentTime);
-        }
         this.updateDisplay();
     }
     
@@ -462,52 +457,40 @@ class BinauralBeatsGenerator {
             const beatFreq = parseFloat(document.getElementById('beat-freq').value);
             const volume = parseFloat(document.getElementById('volume').value);
             
-            // For testing: use fixed frequencies to ensure pure tones
-            const leftFreq = 400;  // Fixed 400 Hz for left
-            const rightFreq = 410; // Fixed 410 Hz for right
+            const leftFreq = carrierFreq - beatFreq / 2;
+            const rightFreq = carrierFreq + beatFreq / 2;
             
-            // Create oscillators with explicit sine wave
+            // Create oscillators - simple approach like original
             this.leftOscillator = this.audioContext.createOscillator();
             this.rightOscillator = this.audioContext.createOscillator();
             
-            // Set waveform type to sine for pure tones
-            this.leftOscillator.type = 'sine';
-            this.rightOscillator.type = 'sine';
-            
-            // Create separate gain nodes for each channel
-            this.leftGain = this.audioContext.createGain();
-            this.rightGain = this.audioContext.createGain();
+            // Create gain nodes
+            const leftGain = this.audioContext.createGain();
+            const rightGain = this.audioContext.createGain();
             
             // Set frequencies
             this.leftOscillator.frequency.setValueAtTime(leftFreq, this.audioContext.currentTime);
             this.rightOscillator.frequency.setValueAtTime(rightFreq, this.audioContext.currentTime);
             
-            // Debug logging
-            console.log('Audio Debug:');
-            console.log('Left frequency:', leftFreq, 'Hz');
-            console.log('Right frequency:', rightFreq, 'Hz');
-            console.log('Left oscillator type:', this.leftOscillator.type);
-            console.log('Right oscillator type:', this.rightOscillator.type);
+            // Set volume
+            leftGain.gain.setValueAtTime(volume / 100, this.audioContext.currentTime);
+            rightGain.gain.setValueAtTime(volume / 100, this.audioContext.currentTime);
             
-            // Set volume for each channel separately
-            this.leftGain.gain.setValueAtTime(volume / 100, this.audioContext.currentTime);
-            this.rightGain.gain.setValueAtTime(volume / 100, this.audioContext.currentTime);
+            // Simple stereo routing - like original
+            this.leftOscillator.connect(leftGain);
+            this.rightOscillator.connect(rightGain);
             
-            // Create simple stereo panners for testing
+            // Create stereo panners
             const leftPanner = this.audioContext.createStereoPanner();
             const rightPanner = this.audioContext.createStereoPanner();
             
-            // Pan hard left and hard right
             leftPanner.pan.setValueAtTime(-1, this.audioContext.currentTime);
             rightPanner.pan.setValueAtTime(1, this.audioContext.currentTime);
             
-            // Simple direct connections
-            this.leftOscillator.connect(this.leftGain);
-            this.leftGain.connect(leftPanner);
-            leftPanner.connect(this.audioContext.destination);
+            leftGain.connect(leftPanner);
+            rightGain.connect(rightPanner);
             
-            this.rightOscillator.connect(this.rightGain);
-            this.rightGain.connect(rightPanner);
+            leftPanner.connect(this.audioContext.destination);
             rightPanner.connect(this.audioContext.destination);
             
             // Start oscillators
@@ -523,9 +506,6 @@ class BinauralBeatsGenerator {
             
             // Start timer
             this.startTimer();
-            
-            // Request wake lock to keep screen on (mobile)
-            this.requestWakeLock();
             
         } catch (error) {
             console.error('Error playing audio:', error);
