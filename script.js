@@ -412,8 +412,10 @@ class BinauralBeatsGenerator {
     }
     
     updateVolume(volume) {
-        if (this.gainNode) {
-            this.gainNode.gain.setValueAtTime(volume / 100, this.audioContext.currentTime);
+        // Update volume for both channels if audio is playing
+        if (this.isPlaying && this.leftGain && this.rightGain) {
+            this.leftGain.gain.setValueAtTime(volume / 100, this.audioContext.currentTime);
+            this.rightGain.gain.setValueAtTime(volume / 100, this.audioContext.currentTime);
         }
         this.updateDisplay();
     }
@@ -467,34 +469,32 @@ class BinauralBeatsGenerator {
             this.leftOscillator = this.audioContext.createOscillator();
             this.rightOscillator = this.audioContext.createOscillator();
             
-            // Create gain nodes for stereo
-            const leftGain = this.audioContext.createGain();
-            const rightGain = this.audioContext.createGain();
-            this.gainNode = this.audioContext.createGain();
+            // Create separate gain nodes for each channel
+            this.leftGain = this.audioContext.createGain();
+            this.rightGain = this.audioContext.createGain();
             
             // Set frequencies
             this.leftOscillator.frequency.setValueAtTime(leftFreq, this.audioContext.currentTime);
             this.rightOscillator.frequency.setValueAtTime(rightFreq, this.audioContext.currentTime);
             
-            // Set volume
-            this.gainNode.gain.setValueAtTime(volume / 100, this.audioContext.currentTime);
+            // Set volume for each channel separately
+            this.leftGain.gain.setValueAtTime(volume / 100, this.audioContext.currentTime);
+            this.rightGain.gain.setValueAtTime(volume / 100, this.audioContext.currentTime);
             
-            // Connect audio graph
-            this.leftOscillator.connect(leftGain);
-            this.rightOscillator.connect(rightGain);
-            
-            leftGain.connect(this.gainNode);
-            rightGain.connect(this.gainNode);
-            
-            // Create stereo panner
+            // Create stereo panners
             const leftPanner = this.audioContext.createStereoPanner();
             const rightPanner = this.audioContext.createStereoPanner();
             
+            // Pan left oscillator hard left, right oscillator hard right
             leftPanner.pan.setValueAtTime(-1, this.audioContext.currentTime);
             rightPanner.pan.setValueAtTime(1, this.audioContext.currentTime);
             
-            leftGain.connect(leftPanner);
-            rightGain.connect(rightPanner);
+            // Connect audio graph - each oscillator goes directly to its own channel
+            this.leftOscillator.connect(this.leftGain);
+            this.rightOscillator.connect(this.rightGain);
+            
+            this.leftGain.connect(leftPanner);
+            this.rightGain.connect(rightPanner);
             
             leftPanner.connect(this.audioContext.destination);
             rightPanner.connect(this.audioContext.destination);
