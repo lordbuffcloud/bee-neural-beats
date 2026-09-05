@@ -247,8 +247,11 @@ class BinauralBeatsGenerator {
         // Handle user interaction
         const enableAudio = () => {
             try {
-                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                document.body.removeChild(prompt);
+                if (!this.audioContext || this.audioContext.state === 'closed') {
+                    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                prompt.remove();
+                document.removeEventListener('click', enableAudio);
                 console.log('Audio context initialized successfully');
                 
                 // Show iOS instructions if on iOS
@@ -266,8 +269,9 @@ class BinauralBeatsGenerator {
             }
         };
         
-        document.getElementById('enable-audio').addEventListener('click', enableAudio);
-        document.addEventListener('click', enableAudio, { once: true });
+        // One listener also handles clicks bubbling from the Enable Audio button.
+        // Keep it after a failure so the user can retry.
+        document.addEventListener('click', enableAudio);
     }
     
     showError(message) {

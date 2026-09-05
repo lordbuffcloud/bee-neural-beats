@@ -1,5 +1,5 @@
 // Service Worker for Bee Neural Beats
-const CACHE_NAME = 'bee-neural-beats-v1';
+const CACHE_NAME = 'bee-neural-beats-v2';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -16,6 +16,16 @@ self.addEventListener('install', (event) => {
         console.log('Service Worker: Caching files');
         return cache.addAll(urlsToCache);
       })
+  );
+});
+
+// Remove previous app caches when the updated worker activates.
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) => Promise.all(
+      keys.filter((key) => key.startsWith('bee-neural-beats-') && key !== CACHE_NAME)
+        .map((key) => caches.delete(key))
+    ))
   );
 });
 
