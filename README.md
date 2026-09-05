@@ -27,7 +27,7 @@ A sophisticated binaural beats generator for meditation, focus, and consciousnes
 
 ## Technology
 
-- **Web Audio API**: High-quality audio generation
+- **Stereo PCM audio**: Generated tones played through a looping HTML audio element
 - **Canvas API**: Real-time waveform visualization
 - **Modern CSS**: Responsive grid layout with golden theme
 - **Vanilla JavaScript**: No frameworks, pure performance
@@ -46,3 +46,11 @@ This project is optimized for Vercel deployment with:
 ## License
 
 MIT License - feel free to use and modify for your own consciousness exploration journey.
+
+## Background playback
+
+Tap Start with Background Play enabled, then switch apps or lock the screen while keeping the tab open. Supported browsers expose play/pause controls on the lock screen. Calls, competing audio, browser shutdown, and phone power-management policies may interrupt playback; real-device testing is required.
+
+The app generates a 20-second stereo WAV locally and loops it through an HTML audio element without routing through an AudioContext. Frequency and volume changes apply when you release a slider. Volume is encoded into the samples for phones that ignore programmatic media volume. Each channel contains whole cycles at the supported frequency steps; browsers may still introduce a brief gap at loop boundaries.
+
+Run regression tests with `node --test tests/*.test.cjs`. Before releasing to mobile users, check Start, app switching, screen lock for several minutes, lock-screen pause/resume, slider changes, and Stop on an iPhone and Android phone.

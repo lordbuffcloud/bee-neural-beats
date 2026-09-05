@@ -1,16 +1,17 @@
 class BinauralBeatsGenerator {
     constructor() {
-        this.audioContext = null;
-        this.leftOscillator = null;
-        this.rightOscillator = null;
-        this.gainNode = null;
+        this.audio = document.createElement('audio');
+        this.audio.loop = true;
+        this.audio.preload = 'auto';
+        document.body.appendChild(this.audio);
+        this.toneKey = null;
+        this.toneUrl = null;
+        this.playRequest = 0;
+        this.elapsedSeconds = 0;
         this.isPlaying = false;
         this.startTime = null;
         this.timerInterval = null;
-        this.wakeLock = null;
         this.backgroundMode = true;
-        this.isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-        this.isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
         
         // Frequency bands
         this.bands = {
@@ -60,7 +61,7 @@ class BinauralBeatsGenerator {
             this.setupEventListeners();
             this.setupVisualization();
             this.setupMobileOptimizations();
-            this.showUserInteractionPrompt();
+            this.setupMediaPlayback();
         } catch (error) {
             console.error('Error initializing:', error);
             this.showError('Failed to initialize audio system. Please refresh the page.');
@@ -68,212 +69,63 @@ class BinauralBeatsGenerator {
     }
     
     setupMobileOptimizations() {
-        // Prevent zoom on double tap
-        let lastTouchEnd = 0;
-        document.addEventListener('touchend', function (event) {
-            const now = (new Date()).getTime();
-            if (now - lastTouchEnd <= 300) {
-                event.preventDefault();
-            }
-            lastTouchEnd = now;
-        }, false);
-        
-        // iOS-specific audio handling
-        if (this.isIOS) {
-            this.setupIOSAudioHandling();
-        }
-        
-        // Handle page visibility changes for background audio
+        const toggle = document.getElementById('background-mode');
+        this.backgroundMode = toggle.checked;
+        toggle.addEventListener('change', () => {
+            this.backgroundMode = toggle.checked;
+        });
         document.addEventListener('visibilitychange', () => {
-            if (this.backgroundMode && this.isPlaying) {
-                if (document.hidden) {
-                    console.log('Page hidden - attempting to maintain audio');
-                    this.handleBackgroundTransition();
-                } else {
-                    console.log('Page visible - resuming audio if needed');
-                    this.handleForegroundTransition();
-                }
-            }
+            if (document.hidden && !this.backgroundMode) this.pause();
         });
-        
-        // Handle Safari-specific events
-        if (this.isSafari || this.isIOS) {
-            document.addEventListener('pagehide', () => {
-                if (this.backgroundMode && this.isPlaying) {
-                    console.log('Safari page hide - attempting to maintain audio');
-                    this.handleBackgroundTransition();
-                }
-            });
-            
-            document.addEventListener('pageshow', () => {
-                if (this.backgroundMode && this.isPlaying) {
-                    console.log('Safari page show - checking audio state');
-                    this.handleForegroundTransition();
-                }
-            });
-        }
-        
-        // Setup background mode toggle
-        const backgroundToggle = document.getElementById('background-mode');
-        if (backgroundToggle) {
-            backgroundToggle.addEventListener('change', (e) => {
-                this.backgroundMode = e.target.checked;
-                console.log('Background mode:', this.backgroundMode ? 'enabled' : 'disabled');
-            });
-        }
     }
-    
-    setupIOSAudioHandling() {
-        // iOS requires special handling for background audio
-        document.addEventListener('touchstart', () => {
-            if (this.audioContext && this.audioContext.state === 'suspended') {
-                this.audioContext.resume();
-            }
+
+    setupMediaPlayback() {
+        this.audio.addEventListener('playing', () => this.setPlaybackState(true));
+        this.audio.addEventListener('pause', () => {
+            if (this.audio.paused) this.setPlaybackState(false);
         });
-        
-        // Handle iOS audio session interruptions
-        if (this.audioContext) {
-            this.audioContext.addEventListener('statechange', () => {
-                console.log('iOS Audio Context state:', this.audioContext.state);
-                if (this.audioContext.state === 'suspended' && this.isPlaying) {
-                    console.log('Audio context suspended - attempting to resume');
-                    setTimeout(() => {
-                        if (this.audioContext.state === 'suspended') {
-                            this.audioContext.resume();
-                        }
-                    }, 100);
-                }
-            });
+        this.audio.addEventListener('error', () => {
+            this.setPlaybackState(false);
+            this.showError('Audio could not load. Tap Start to try again.');
+        });
+        // Optional enhancements must never prevent ordinary audio playback.
+        try {
+            if (navigator.audioSession) navigator.audioSession.type = 'playback';
+        } catch (error) {
+            console.log('Audio session preference unavailable:', error);
         }
-    }
-    
-    handleBackgroundTransition() {
-        // iOS limitations: We can't actually maintain audio in background
-        // But we can prepare for quick resume
-        if (this.isIOS) {
-            console.log('iOS background transition - audio will pause');
-            this.showIOSBackgroundWarning();
-        }
-    }
-    
-    handleForegroundTransition() {
-        // Resume audio if it was suspended
-        if (this.audioContext && this.audioContext.state === 'suspended' && this.isPlaying) {
-            this.audioContext.resume().then(() => {
-                console.log('Audio context resumed after foreground transition');
-            });
-        }
-    }
-    
-    showIOSBackgroundWarning() {
-        const warning = document.createElement('div');
-        warning.id = 'ios-warning';
-        warning.style.cssText = `
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(255, 165, 0, 0.9);
-            color: #000000;
-            padding: 15px 25px;
-            border-radius: 8px;
-            z-index: 1001;
-            font-weight: bold;
-            text-align: center;
-            max-width: 90%;
-        `;
-        warning.innerHTML = `
-            <div>📱 iOS Limitation</div>
-            <div style="font-size: 0.9rem; margin-top: 5px;">
-                Audio pauses when switching apps. Tap "Start" to resume.
-            </div>
-        `;
-        document.body.appendChild(warning);
-        
-        setTimeout(() => {
-            if (document.body.contains(warning)) {
-                document.body.removeChild(warning);
+        if (navigator.mediaSession) {
+            for (const [action, handler] of Object.entries({
+                play: () => this.play(),
+                pause: () => this.pause(),
+                stop: () => this.stop()
+            })) {
+                try { navigator.mediaSession.setActionHandler(action, handler); }
+                catch (error) { console.log('Media action unavailable:', action); }
             }
-        }, 5000);
-    }
-    
-    showIOSInstructions() {
-        const iosInstructions = document.getElementById('ios-instructions');
-        if (iosInstructions) {
-            iosInstructions.style.display = 'block';
-            
-            // Auto-hide after 10 seconds
-            setTimeout(() => {
-                iosInstructions.style.display = 'none';
-            }, 10000);
         }
     }
-    
-    showUserInteractionPrompt() {
-        // Create a prompt for user interaction
-        const prompt = document.createElement('div');
-        prompt.id = 'audio-prompt';
-        prompt.style.cssText = `
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.9);
-            border: 2px solid #FFD700;
-            border-radius: 15px;
-            padding: 30px;
-            color: #FFD700;
-            text-align: center;
-            z-index: 1000;
-            box-shadow: 0 10px 30px rgba(255, 215, 0, 0.5);
-        `;
-        prompt.innerHTML = `
-            <h3>🎵 Audio System Ready</h3>
-            <p>Click anywhere to enable audio for the binaural beats generator.</p>
-            <p><small>Modern browsers require user interaction to start audio.</small></p>
-            <button id="enable-audio" style="
-                background: linear-gradient(135deg, #FFD700, #FFA500);
-                color: #000000;
-                border: none;
-                border-radius: 8px;
-                padding: 12px 24px;
-                font-weight: bold;
-                cursor: pointer;
-                margin-top: 15px;
-            ">Enable Audio</button>
-        `;
-        document.body.appendChild(prompt);
-        
-        // Handle user interaction
-        const enableAudio = () => {
-            try {
-                if (!this.audioContext || this.audioContext.state === 'closed') {
-                    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                }
-                prompt.remove();
-                document.removeEventListener('click', enableAudio);
-                console.log('Audio context initialized successfully');
-                
-                // Show iOS instructions if on iOS
-                if (this.isIOS) {
-                    this.showIOSInstructions();
-                }
-                
-                // Setup iOS audio handling after context creation
-                if (this.isIOS) {
-                    this.setupIOSAudioHandling();
-                }
-            } catch (error) {
-                console.error('Error creating audio context:', error);
-                this.showError('Failed to create audio context. Please try again.');
+
+    setPlaybackState(playing) {
+        if (playing && !this.isPlaying) {
+            this.startTime = Date.now();
+            this.startTimer();
+        } else if (!playing && this.isPlaying) {
+            this.elapsedSeconds += (Date.now() - this.startTime) / 1000;
+            this.startTime = null;
+            this.stopTimer();
+        }
+        this.isPlaying = playing;
+        const button = document.getElementById('play-pause');
+        button.textContent = playing ? '⏸️ Pause' : '▶️ Start';
+        button.classList.toggle('playing', playing);
+        try {
+            if (navigator.mediaSession) {
+                navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
             }
-        };
-        
-        // One listener also handles clicks bubbling from the Enable Audio button.
-        // Keep it after a failure so the user can retry.
-        document.addEventListener('click', enableAudio);
+        } catch (error) { console.log('Media state unavailable:', error); }
     }
-    
+
     showError(message) {
         const errorDiv = document.createElement('div');
         errorDiv.style.cssText = `
@@ -311,7 +163,7 @@ class BinauralBeatsGenerator {
                 this.loadPreset(preset);
                 // Auto-play after selecting preset
                 if (!this.isPlaying) {
-                    setTimeout(() => this.togglePlayback(), 100);
+                    this.togglePlayback();
                 }
             });
         });
@@ -341,6 +193,11 @@ class BinauralBeatsGenerator {
             this.updateVolume(parseFloat(e.target.value));
         });
         
+        // Apply the new tone when the user releases a slider.
+        [carrierSlider, beatSlider, volumeSlider].forEach(slider => {
+            slider.addEventListener('change', () => this.refreshTone());
+        });
+
         // Preset buttons
         document.querySelectorAll('.preset-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -370,6 +227,8 @@ class BinauralBeatsGenerator {
         this.updateCarrierFrequency(carrierFreq);
         this.updateDisplay();
         
+        this.refreshTone();
+
         // Update active band button
         document.querySelectorAll('.band-btn').forEach(btn => {
             btn.classList.remove('active');
@@ -389,36 +248,25 @@ class BinauralBeatsGenerator {
         this.updateBeatFrequency(preset.beat);
         this.updateVolume(preset.volume);
         this.updateDisplay();
+        this.refreshTone();
     }
     
-    updateCarrierFrequency(frequency) {
-        if (this.isPlaying) {
-            const beatFreq = parseFloat(document.getElementById('beat-freq').value);
-            const leftFreq = frequency - beatFreq / 2;
-            const rightFreq = frequency + beatFreq / 2;
-            
-            if (this.leftOscillator) this.leftOscillator.frequency.setValueAtTime(leftFreq, this.audioContext.currentTime);
-            if (this.rightOscillator) this.rightOscillator.frequency.setValueAtTime(rightFreq, this.audioContext.currentTime);
-        }
+    updateCarrierFrequency() {
         this.updateDisplay();
     }
-    
-    updateBeatFrequency(frequency) {
-        if (this.isPlaying) {
-            const carrierFreq = parseFloat(document.getElementById('carrier-freq').value);
-            const leftFreq = carrierFreq - frequency / 2;
-            const rightFreq = carrierFreq + frequency / 2;
-            
-            if (this.leftOscillator) this.leftOscillator.frequency.setValueAtTime(leftFreq, this.audioContext.currentTime);
-            if (this.rightOscillator) this.rightOscillator.frequency.setValueAtTime(rightFreq, this.audioContext.currentTime);
-        }
+
+    updateBeatFrequency() {
         this.updateDisplay();
     }
-    
-    updateVolume(volume) {
+
+    updateVolume() {
         this.updateDisplay();
     }
-    
+
+    refreshTone() {
+        if (this.isPlaying || !this.audio.paused) this.play();
+    }
+
     updateDisplay() {
         const carrierFreq = parseFloat(document.getElementById('carrier-freq').value);
         const beatFreq = parseFloat(document.getElementById('beat-freq').value);
@@ -437,7 +285,7 @@ class BinauralBeatsGenerator {
     }
     
     async togglePlayback() {
-        if (this.isPlaying) {
+        if (this.isPlaying || !this.audio.paused) {
             this.pause();
         } else {
             await this.play();
@@ -445,129 +293,61 @@ class BinauralBeatsGenerator {
     }
     
     async play() {
+        const request = ++this.playRequest;
         try {
-            // Check if audio context exists
-            if (!this.audioContext) {
-                this.showError('Audio system not initialized. Please click to enable audio first.');
-                return;
+            const carrier = Number(document.getElementById('carrier-freq').value);
+            const beat = Number(document.getElementById('beat-freq').value);
+            const volume = Number(document.getElementById('volume').value);
+            const key = `${carrier}:${beat}:${volume}`;
+            if (key !== this.toneKey || this.audio.error) {
+                const url = URL.createObjectURL(createToneWav(carrier, beat, volume));
+                const previousUrl = this.toneUrl;
+                this.audio.src = url;
+                this.toneUrl = url;
+                this.toneKey = key;
+                if (previousUrl) URL.revokeObjectURL(previousUrl);
             }
-            
-            // Resume audio context if suspended
-            if (this.audioContext.state === 'suspended') {
-                await this.audioContext.resume();
-            }
-            
-            const carrierFreq = parseFloat(document.getElementById('carrier-freq').value);
-            const beatFreq = parseFloat(document.getElementById('beat-freq').value);
-            const volume = parseFloat(document.getElementById('volume').value);
-            
-            const leftFreq = carrierFreq - beatFreq / 2;
-            const rightFreq = carrierFreq + beatFreq / 2;
-            
-            // Create oscillators - simple approach like original
-            this.leftOscillator = this.audioContext.createOscillator();
-            this.rightOscillator = this.audioContext.createOscillator();
-            
-            // Create gain nodes
-            const leftGain = this.audioContext.createGain();
-            const rightGain = this.audioContext.createGain();
-            
-            // Set frequencies
-            this.leftOscillator.frequency.setValueAtTime(leftFreq, this.audioContext.currentTime);
-            this.rightOscillator.frequency.setValueAtTime(rightFreq, this.audioContext.currentTime);
-            
-            // Set volume
-            leftGain.gain.setValueAtTime(volume / 100, this.audioContext.currentTime);
-            rightGain.gain.setValueAtTime(volume / 100, this.audioContext.currentTime);
-            
-            // Simple stereo routing - like original
-            this.leftOscillator.connect(leftGain);
-            this.rightOscillator.connect(rightGain);
-            
-            // Create stereo panners
-            const leftPanner = this.audioContext.createStereoPanner();
-            const rightPanner = this.audioContext.createStereoPanner();
-            
-            leftPanner.pan.setValueAtTime(-1, this.audioContext.currentTime);
-            rightPanner.pan.setValueAtTime(1, this.audioContext.currentTime);
-            
-            leftGain.connect(leftPanner);
-            rightGain.connect(rightPanner);
-            
-            leftPanner.connect(this.audioContext.destination);
-            rightPanner.connect(this.audioContext.destination);
-            
-            // Start oscillators
-            this.leftOscillator.start();
-            this.rightOscillator.start();
-            
-            this.isPlaying = true;
-            this.startTime = this.audioContext.currentTime;
-            
-            // Update UI
-            document.getElementById('play-pause').textContent = '⏸️ Pause';
-            document.getElementById('play-pause').classList.add('playing');
-            
-            // Start timer
-            this.startTimer();
-            
+            // Call synchronously from the click/change handler to retain user activation.
+            await this.audio.play();
+            if (request !== this.playRequest) return;
+            this.setPlaybackState(!this.audio.paused);
+            try {
+                if (navigator.mediaSession && window.MediaMetadata) {
+                    navigator.mediaSession.metadata = new MediaMetadata({
+                        title: `${beat} Hz Binaural Beats`,
+                        artist: 'Bee Neural Beats',
+                        album: `${carrier} Hz carrier`,
+                        artwork: [{ src: new URL('bee-logo.png', location.href).href, type: 'image/png' }]
+                    });
+                }
+            } catch (error) { console.log('Media metadata unavailable:', error); }
         } catch (error) {
+            if (request !== this.playRequest) return;
             console.error('Error playing audio:', error);
-            this.showError('Failed to play audio. Please check your browser audio settings.');
+            this.setPlaybackState(false);
+            this.showError('Could not start audio. Tap Start to try again.');
         }
     }
-    
+
     pause() {
-        if (this.leftOscillator) {
-            this.leftOscillator.stop();
-            this.leftOscillator = null;
-        }
-        if (this.rightOscillator) {
-            this.rightOscillator.stop();
-            this.rightOscillator = null;
-        }
-        
-        this.isPlaying = false;
-        this.stopTimer();
-        this.releaseWakeLock();
-        
-        // Update UI
-        document.getElementById('play-pause').textContent = '▶️ Start';
-        document.getElementById('play-pause').classList.remove('playing');
+        ++this.playRequest;
+        this.audio.pause();
+        this.setPlaybackState(false);
     }
-    
-    async requestWakeLock() {
-        try {
-            if ('wakeLock' in navigator) {
-                this.wakeLock = await navigator.wakeLock.request('screen');
-                console.log('Wake lock acquired');
-                
-                this.wakeLock.addEventListener('release', () => {
-                    console.log('Wake lock released');
-                });
-            }
-        } catch (err) {
-            console.log('Wake lock failed:', err);
-        }
-    }
-    
-    releaseWakeLock() {
-        if (this.wakeLock) {
-            this.wakeLock.release();
-            this.wakeLock = null;
-        }
-    }
-    
+
     stop() {
         this.pause();
         this.startTime = null;
+        this.elapsedSeconds = 0;
+        this.audio.currentTime = 0;
         document.getElementById('timer').textContent = '00:00';
     }
     
     startTimer() {
+        this.stopTimer();
         this.timerInterval = setInterval(() => {
             if (this.startTime) {
-                const elapsed = this.audioContext.currentTime - this.startTime;
+                const elapsed = this.elapsedSeconds + (Date.now() - this.startTime) / 1000;
                 const minutes = Math.floor(elapsed / 60);
                 const seconds = Math.floor(elapsed % 60);
                 document.getElementById('timer').textContent = 
