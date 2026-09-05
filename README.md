@@ -51,6 +51,6 @@ MIT License - feel free to use and modify for your own consciousness exploration
 
 Tap Start with Background Play enabled, then switch apps or lock the screen while keeping the tab open. Supported browsers expose play/pause controls on the lock screen. Calls, competing audio, browser shutdown, and phone power-management policies may interrupt playback; real-device testing is required.
 
-The app generates a 20-second stereo WAV locally and loops it through an HTML audio element without routing through an AudioContext. Frequency and volume changes apply when you release a slider. Volume is encoded into the samples for phones that ignore programmatic media volume. Each channel contains whole cycles at the supported frequency steps; browsers may still introduce a brief gap at loop boundaries.
+The app generates a 20-second, 24-bit stereo WAV locally and loops it through an HTML audio element without routing through an AudioContext. Frequency and volume changes apply when you release a slider. Volume is encoded into the samples for phones that ignore programmatic media volume. The output reserves 6 dB of headroom and uses 8 ms cosine fades at the loop edges. Each channel contains whole cycles at the supported frequency steps; browsers may still introduce a brief gap at loop boundaries.
 
 Run regression tests with `node --test tests/*.test.cjs`. Before releasing to mobile users, check Start, app switching, screen lock for several minutes, lock-screen pause/resume, slider changes, and Stop on an iPhone and Android phone.

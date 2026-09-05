@@ -1,5 +1,5 @@
 // Service Worker for Bee Neural Beats
-const CACHE_NAME = 'bee-neural-beats-v3';
+const CACHE_NAME = 'bee-neural-beats-v4';
 const urlsToCache = [
   '/',
   '/index.html',

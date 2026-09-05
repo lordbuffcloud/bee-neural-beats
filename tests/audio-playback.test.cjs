@@ -47,11 +47,16 @@ test('WAV has distinct accurate stereo frequencies, volume and phase-continuous 
     const view = new DataView(await context.createToneWav(400, 10.1, 50).arrayBuffer());
     assert.equal(view.getUint16(22, true), 2);
     assert.equal(view.getUint32(24, true), 44100);
-    assert.equal(view.getUint32(40, true), 44100 * 20 * 4);
+    assert.equal(view.getUint32(40, true), 44100 * 20 * 6);
+    assert.equal(view.getUint16(34, true), 24);
     for (const [channel, frequency] of [[0, 394.95], [1, 405.05]]) {
         for (const i of [0, 1, 31, 4001, 44099, 881999]) {
-            const actual = view.getInt16(44 + i * 4 + channel * 2, true);
-            const expected = Math.round(32767 * 0.5 * Math.sin(2 * Math.PI * frequency * i / 44100));
+            const offset = 44 + i * 6 + channel * 3;
+            const raw = view.getUint8(offset) | (view.getUint8(offset + 1) << 8) | (view.getUint8(offset + 2) << 16);
+            const actual = (raw << 8) >> 8;
+            const edge = Math.min(1, i / (44100 * 0.008), (882000 - 1 - i) / (44100 * 0.008));
+            const envelope = (1 - Math.cos(Math.PI * edge)) / 2;
+            const expected = Math.round(8388607 * 0.25 * envelope * Math.sin(2 * Math.PI * frequency * i / 44100));
             assert.ok(Math.abs(actual - expected) <= 1);
         }
         assert.ok(Math.abs(Math.sin(2 * Math.PI * frequency * 20)) < 1e-8);
